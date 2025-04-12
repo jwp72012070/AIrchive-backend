@@ -20,11 +20,11 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: 'http://localhost:3001', // 프론트엔드 도메인
+    origin: 'http://localhost:3000', // 프론트엔드 도메인
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true, // 쿠키 전달 허용
   });
 
-  await app.listen(3000);
+  await app.listen(3001);
 }
 bootstrap();
