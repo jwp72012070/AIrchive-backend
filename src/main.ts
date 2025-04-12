@@ -12,7 +12,12 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api-docs', app, document);
+  SwaggerModule.setup('api-docs', app, document, {
+    swaggerOptions: {
+      displayRequestDuration: true, // 요청 시간 표시
+      filter: true, // 필터 활성화
+    },
+  });
 
   await app.listen(3000);
 }
