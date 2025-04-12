@@ -7,23 +7,22 @@ import { createClient } from '@supabase/supabase-js';
 export class AiagentService {
   private openai: OpenAI;
   private supabase: SupabaseClient;
-  private modelName = 'gpt-3.5-turbo'; // 모델 이름 설정
-  private maxMessages = 10; // 최대 메시지 수 설정
+  private modelName = 'gpt-3.5-turbo'; // Model name setting
 
   constructor() {
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || '', // 빈 문자열로 대체
+      apiKey: process.env.OPENAI_API_KEY || '', // Replace with an empty string
     });
-    // service_role 키 사용
+    // Use service_role key
     this.supabase = createClient(
-      process.env.SUPABASE_URL || '', // 빈 문자열로 대체
-      process.env.SUPABASE_KEY || '', // 빈 문자열로 대체
+      process.env.SUPABASE_URL || '', // Replace with an empty string
+      process.env.SUPABASE_KEY || '', // Replace with an empty string
     );
   }
 
   async chat(userId: string, prompt: string): Promise<string> {
     try {
-      // 1. 이전 대화 내용 가져오기
+      // 1. Get previous conversation history
       const { data: messages, error } = await this.supabase
         .from('messages')
         .select('*')
@@ -31,8 +30,11 @@ export class AiagentService {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Supabase에서 대화 내용 가져오기 실패:', error);
-        throw new Error('대화 내용을 가져오는 데 실패했습니다.');
+        console.error(
+          'Failed to retrieve conversation history from Supabase:',
+          error,
+        );
+        throw new Error('Failed to retrieve conversation history.');
       }
 
       let conversationHistory = messages
@@ -42,41 +44,49 @@ export class AiagentService {
           }))
         : [];
 
-      // 대화 내용이 없는 경우 초기 메시지 설정
+      // Set initial message (System prompt) if there is no conversation history
       if (conversationHistory.length === 0) {
         conversationHistory = [
-          { role: 'system', content: 'You are a helpful assistant.' },
+          {
+            role: 'system',
+            content:
+              'You are an AI Agent that provides investment advice and supports automated trading. Provide professional answers to questions related to finance, coins, and investment.',
+          },
         ];
       }
 
-      // 2. 새로운 메시지 conversationHistory에 추가
-      conversationHistory.push({ role: 'user', content: prompt });
+      // 2. Check if the prompt is related to finance/coins/investment
+      const isRelated = await this.isPromptRelatedToFinance(prompt);
 
-      // 3. 메시지 수 제한
-      if (conversationHistory.length > this.maxMessages) {
-        // 오래된 대화 내용 삭제
-        conversationHistory = conversationHistory.slice(-this.maxMessages); // 최근 10개 메시지만 유지
+      if (!isRelated) {
+        return 'Please enter content related to finance/coins/investment.';
       }
 
-      // 4. OpenAI API 호출
+      // 3. Add new message to conversationHistory
+      conversationHistory.push({ role: 'user', content: prompt });
+
+      // 4. Call OpenAI API
       const completion = await this.openai.chat.completions.create({
         messages: conversationHistory,
         model: this.modelName,
       });
 
-      const response = completion.choices[0].message.content || ''; // 빈 문자열로 대체
+      const response = completion.choices[0].message.content || ''; // Replace with an empty string
 
-      // 5. 새로운 응답 conversationHistory에 추가
+      // 5. Add new response to conversationHistory
       conversationHistory.push({ role: 'assistant', content: response });
 
-      // 6. 데이터베이스에 대화 내용 저장
+      // 6. Save conversation history to the database
       await this.saveMessage(userId, 'user', prompt);
       await this.saveMessage(userId, 'assistant', response);
 
       return response;
     } catch (error) {
-      console.error('OpenAI API 또는 Supabase 호출 중 오류 발생:', error);
-      return 'API 호출 중 오류가 발생했습니다.';
+      console.error(
+        'Error occurred during OpenAI API or Supabase call:',
+        error,
+      );
+      return 'An error occurred while processing the request.';
     }
   }
 
@@ -95,8 +105,32 @@ export class AiagentService {
     ]);
 
     if (error) {
-      console.error('Supabase에 메시지 저장 실패:', error);
-      throw new Error('메시지를 저장하는 데 실패했습니다.');
+      console.error('Failed to save message to Supabase:', error);
+      throw new Error('Failed to save the message.');
+    }
+  }
+
+  // Function to check if the prompt is related to finance/coins/investment
+  private async isPromptRelatedToFinance(prompt: string): Promise<boolean> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: `You are a helpful assistant that determines whether a given text is related to finance, cryptocurrency, or investment, regardless of the language. 
+            Respond with "true" if the text is related to finance, cryptocurrency, or investment. 
+            Respond with "false" if the text is not related to finance, cryptocurrency, or investment.`,
+          },
+          { role: 'user', content: prompt },
+        ],
+        model: this.modelName,
+      });
+
+      const response = completion.choices[0].message.content || '';
+      return response.trim().toLowerCase() === 'true';
+    } catch (error) {
+      console.error('Error occurred during OpenAI API call:', error);
+      return false; // Return false safely in case of an error
     }
   }
 }
