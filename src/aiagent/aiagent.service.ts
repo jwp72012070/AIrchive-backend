@@ -17,7 +17,7 @@ export class AiagentService {
     // service_role 키 사용
     this.supabase = createClient(
       process.env.SUPABASE_URL || '', // 빈 문자열로 대체
-      process.env.SUPABASE_SERVICE_KEY || '', // 빈 문자열로 대체
+      process.env.SUPABASE_KEY || '', // 빈 문자열로 대체
     );
   }
 
@@ -44,7 +44,9 @@ export class AiagentService {
 
       // 대화 내용이 없는 경우 초기 메시지 설정
       if (conversationHistory.length === 0) {
-        conversationHistory = [{ role: 'system', content: 'You are a helpful assistant.' }];
+        conversationHistory = [
+          { role: 'system', content: 'You are a helpful assistant.' },
+        ];
       }
 
       // 2. 새로운 메시지 conversationHistory에 추가
