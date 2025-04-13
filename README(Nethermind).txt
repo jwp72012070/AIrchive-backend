@@ -50,6 +50,10 @@ Backend development with Nest.js and AIops implementation
 
 🧪 How to Test
 
+**Project URL**
+
+- https://tradgent-front.vercel.app/
+
 **Installation**
 
 (frontend)
